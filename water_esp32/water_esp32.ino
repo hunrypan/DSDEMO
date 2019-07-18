@@ -10,24 +10,36 @@ String mqttid_sim7020 = "0";
 String mqttsvip = "94.191.14.111";
 String mqttsvport = "2000";
 
-********wifi********************
-const char* ssid = "";
-const char* password = "";
+//********wifi********************
+const char* ssid = "DSCNRT-2.4G";
+const char* password = "DrinkStation88";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-void setup() {
+String  netstate  = "none";
 
-  Serial.begin(115200);
-  delay(500);
+void wifiopen(int timeout)
+{
+WiFi.begin(ssid, password);
+long int time = millis(); 
 
-  Serial1.begin(115200,SERIAL_8N1, 4, 2); 
-  Serial2.begin(115200,SERIAL_8N1, 16, 17);
-  
-  delay(1000);
-  // put your setup code here, to run once:
+  while (WiFi.status() != WL_CONNECTED && (time + timeout > millis())) {
+    delay(500);
+    Serial.print(".");
+}
 
+if (WiFi.status() == WL_CONNECTED)
+{
+netstate = "wifi";
+Serial.println("wifi ok");
+}
+}
+
+
+
+void sim7020open()
+{
 send_at("AT+CMQNEW=?",2000);
 delay(2000);
  
@@ -43,7 +55,30 @@ delay(3000);
 
 send_at("AT+CMQSUB=" + mqttid_sim7020  + ",\"hello\",0",3000);
 delay(3000);
+  
+}
 
+void setup() {
+
+  Serial.begin(115200);
+  delay(500);
+
+  Serial1.begin(115200,SERIAL_8N1, 4, 2); 
+  Serial2.begin(115200,SERIAL_8N1, 16, 17);
+  
+  delay(1000);
+
+ // if (ssid.length > 0)
+ { 
+  wifiopen(6000);
+if(netstate == "none")
+{
+  Serial.println("to open sim7020");
+  sim7020open();
+}
+ }
+
+ 
 //send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0,4,\"wind\"",3000);
 //delay(3000);
 }
