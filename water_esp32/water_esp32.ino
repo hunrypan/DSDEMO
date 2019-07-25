@@ -8,6 +8,8 @@
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 
+String s2_command;
+
 String mqttid_sim7020 = "0";
 String mqttsvip = "94.191.14.111";
 String mqttsvport = "2000";
@@ -98,7 +100,7 @@ void setup() {
   }
 
 
-  //send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0,4,\"wind\"",3000);
+  //send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0,4,\"3f4e\"",3000);
   //delay(3000);
 }
 
@@ -112,7 +114,10 @@ void loop() {
     client.loop();
     client.publish("hello", "hello from wifi");
   } else {
-    send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0,4,\"1234\"", 3000);
+
+    String ahas = "wind";
+     
+    send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0,8,\"" + strtoul("wind")   + "\"", 3000);
   }
   //
 
@@ -205,3 +210,25 @@ void runBLE()
   BLEDevice::startAdvertising();
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
+
+
+void watch(int timeout)
+{
+if (Serial2.available())
+{
+  char c = Serial2.read();
+  if (c =='\n')
+  {
+    s2_Parse(s2_command);
+    s2_command = "";
+  }else{
+    s2_command += c; 
+  }
+}
+} 
+
+void s2_Parse(String com)
+{
+     Serial.print("Serial2 find  ");
+     Serial.println(com);
+} 
