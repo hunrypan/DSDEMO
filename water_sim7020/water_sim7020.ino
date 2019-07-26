@@ -3,14 +3,12 @@ String s2_command = "";
 String mqttid_sim7020 = "0";
 String mqttsvip = "94.191.14.111";
 String mqttsvport = "2000";
+String sim7020_isopen = "off";
 
 void sim7020open()
 {
   send_at("AT+CMQNEW=?", 2000);
   delay(2000);
-
-  //send_at("AT+CMQNEW=\"" +  mqttsvip   +   "\", \"" +  mqttsvport  + "\" ,5000,1024",5000);
-  //delay(5000);
 
   delay(4000);
   mqttid_sim7020 =  getmqttid();
@@ -21,6 +19,8 @@ void sim7020open()
 
   send_at("AT+CMQSUB=" + mqttid_sim7020  + ",\"hello\",0", 3000);
   delay(3000);
+
+  sim7020_isopen = "on"; 
 }
 
 void setup() {
@@ -40,6 +40,8 @@ void send_at(String command, int timeout)
 {
 
   Serial2.println(command);
+
+  /*
   long int time = millis();
   while (time + timeout > millis())
   {
@@ -49,6 +51,7 @@ void send_at(String command, int timeout)
       Serial.print(c);
     }
   }
+  */
 }
 
 String getmqttid()
@@ -73,8 +76,15 @@ String getmqttid()
 }
 
 
-void watch(int timeout)
+void watch()
 {
+
+if (sim7020_isopen == "off")
+{
+  sim7020open();
+}
+
+  
 if (Serial2.available())
 {
   char c = Serial2.read();
@@ -90,9 +100,44 @@ if (Serial2.available())
 
 void s2_Parse(String com)
 {
-     Serial.print("Serial2 find  ");
-     Serial.println(com);
+int aha = -1;
+aha = com.indexOf("+CMQPUB:") ;
+Serial.println((String)aha);  
+if (aha != -1)
+{
+Serial.println(com);
+  
+  String topic = getValue(com, ',', 1);
+  topic = topic.substring(2,topic.length()-1);
+  
+  String msg =getValue(com, ',',6);
+  msg = msg.substring(2,msg.length()-1);
+  
+  Serial.print("topic is:");
+  Serial.println(topic);
+  Serial.print("msg is:");
+  Serial.println(bytestostring(msg));
+}
+   //mqttpub("ok");
 } 
+
+
+String getValue(String data, char separator, int index)
+{
+  int found = 0;
+  int strIndex[] = {0, -1};
+  int maxIndex = data.length()-1;
+
+  for(int i=0; i<=maxIndex && found<=index; i++){
+    if(data.charAt(i)==separator || i==maxIndex){
+        found++;
+        strIndex[0] = strIndex[1]+1;
+        strIndex[1] = (i == maxIndex) ? i+1 : i;
+    }
+  }
+
+  return found>index ? data.substring(strIndex[0], strIndex[1]) : "";
+}
 
 
 void array_to_string(byte array[], unsigned int len, char buffer[])
@@ -112,19 +157,49 @@ void mqttpub(String msg)
 {
 byte   ahabyte[msg.length()]; 
 msg.getBytes(ahabyte,sizeof(ahabyte)+1);
-Serial.print("string is "); 
-Serial.println((char*)ahabyte);
+//Serial.print("string is "); 
+//Serial.println((char*)ahabyte);
 
 char str[sizeof(ahabyte)*2] = "";
 array_to_string(ahabyte, sizeof(ahabyte), str);
-Serial.println(str);
+//Serial.println(str);
 
  send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"", 3000);
 }
 
+String bytestostring(String hex)
+{
+  String thes = "";
+  unsigned char val[hex.length()/2];
+ for (size_t count = 0; count < sizeof val/sizeof *val; count++) {
+        sscanf(hex.c_str() + 2*count, "%2hhx", &val[count]);
+      char  char1 = char( hex_to_ascii(hex[2*count], hex[2*count + 1])); 
+      thes +=  char1;
+    }
+    return thes;
+}
+
+
+int hex_to_int(char c){
+        int first = c / 16 - 3;
+        int second = c % 16;
+        int result = first*10 + second;
+        if(result > 9) result--;
+        return result;
+}
+
+int hex_to_ascii(char c, char d){
+        int high = hex_to_int(c) * 16;
+        int low = hex_to_int(d);
+        return high+low;
+}
+
 void loop() {
   // put your main code here, to run repeatedly:
-
-mqttpub("aha ok");
-delay(5000);
+watch();
+//mqttpub("aha ok");
+//delay(5000);
   }
+
+
+  
