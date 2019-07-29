@@ -6,7 +6,29 @@
 
 #define TIMEOUT 200
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
-#define CHARACTERISTIC_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define wifistate_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define ssid_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a1"
+#define pw_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a2"
+
+ BLECharacteristic *C_ssid = NULL;
+ BLECharacteristic *C_pw = NULL;
+ BLECharacteristic * c_wifistate = NULL;
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string value = pCharacteristic->getValue();
+
+      if (value.length() > 0) {
+        Serial.println("*********");
+        Serial.print("New value: ");
+        for (int i = 0; i < value.length(); i++)
+          Serial.print(value[i]);
+
+        Serial.println();
+        Serial.println("*********");
+      }
+    }
+};
 
 String s2_command;
 
@@ -15,6 +37,9 @@ String mqttsvip = "94.191.14.111";
 String mqttsvport = "2000";
 
 //********wifi********************
+//const char* ssid = "";
+//const char* password = "";
+
 const char* ssid = "DSCNRT-2.4G";
 const char* password = "DrinkStation88";
 
@@ -23,6 +48,57 @@ uint16_t mqttport = 2000;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
+void mqttpub(String msg)
+{
+byte   ahabyte[msg.length()]; 
+msg.getBytes(ahabyte,sizeof(ahabyte)+1);
+//Serial.print("string is "); 
+//Serial.println((char*)ahabyte);
+
+char str[sizeof(ahabyte)*2] = "";
+array_to_string(ahabyte, sizeof(ahabyte), str);
+//Serial.println(str);
+
+ send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"", 3000);
+}
+
+void array_to_string(byte array[], unsigned int len, char buffer[])
+{
+    for (unsigned int i = 0; i < len; i++)
+    {
+        byte nib1 = (array[i] >> 4) & 0x0F;
+        byte nib2 = (array[i] >> 0) & 0x0F;
+        buffer[i*2+0] = nib1  < 0xA ? '0' + nib1  : 'A' + nib1  - 0xA;
+        buffer[i*2+1] = nib2  < 0xA ? '0' + nib2  : 'A' + nib2  - 0xA;
+    }
+    buffer[len*2] = '\0';
+}
+
+String bytestostring(String hex)
+{
+  String thes = "";
+  unsigned char val[hex.length()/2];
+ for (size_t count = 0; count < sizeof val/sizeof *val; count++) {
+        sscanf(hex.c_str() + 2*count, "%2hhx", &val[count]);
+      char  char1 = char( hex_to_ascii(hex[2*count], hex[2*count + 1])); 
+      thes +=  char1;
+    }
+    return thes;
+}
+
+int hex_to_int(char c){
+        int first = c / 16 - 3;
+        int second = c % 16;
+        int result = first*10 + second;
+        if(result > 9) result--;
+        return result;
+}
+
+int hex_to_ascii(char c, char d){
+        int high = hex_to_int(c) * 16;
+        int low = hex_to_int(d);
+        return high+low;
+}
 
 void wifiopen(int timeout)
 {
@@ -91,6 +167,7 @@ void setup() {
     wifiopen(6000);
     if (WiFi.status() == WL_CONNECTED)
     {
+      Serial.println("ok wifi connect");
       client.setServer(mqttsv, mqttport);
       client.setCallback(callback);
     } else {
@@ -98,10 +175,6 @@ void setup() {
       sim7020open();
     }
   }
-
-
-  //send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0,4,\"3f4e\"",3000);
-  //delay(3000);
 }
 
 void loop() {
@@ -112,12 +185,10 @@ void loop() {
       reconnect();
     }
     client.loop();
-    client.publish("hello", "hello from wifi");
+    client.publish("hello", "hello from  wifi");
   } else {
-
-    String ahas = "wind";
      
-    send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0,8,\"" + strtoul("wind")   + "\"", 3000);
+    mqttpub("wind");
   }
   //
 
@@ -193,20 +264,42 @@ void runBLE()
   BLEDevice::init("DSC");
   BLEServer *pServer = BLEDevice::createServer();
   BLEService *pService = pServer->createService(SERVICE_UUID);
-  BLECharacteristic *pCharacteristic = pService->createCharacteristic(
-                                         CHARACTERISTIC_UUID,
+  BLECharacteristic * c_wifistate = pService->createCharacteristic(
+                                         wifistate_UUID,
                                          BLECharacteristic::PROPERTY_READ |
                                          BLECharacteristic::PROPERTY_WRITE
                                        );
+  c_wifistate->setCallbacks(new MyCallbacks());
+  if(WiFi.status() == WL_CONNECTED)
+  {
+  c_wifistate->setValue("ON");
+  }else{
+  c_wifistate->setValue("OFF");  
+  }
 
-  pCharacteristic->setValue("DSC00000001");
+ BLECharacteristic *C_ssid = pService->createCharacteristic(
+                                         ssid_UUID,
+                                         BLECharacteristic::PROPERTY_READ |
+                                         BLECharacteristic::PROPERTY_WRITE
+                                       );
+ C_ssid->setValue("ssid");  
+
+ BLECharacteristic *C_pw = pService->createCharacteristic(
+                                         ssid_UUID,
+                                         BLECharacteristic::PROPERTY_READ |
+                                         BLECharacteristic::PROPERTY_WRITE
+                                       );
+ C_pw->setValue("password"); 
+
+
+  
   pService->start();
-  // BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
+  //BLEAdvertising *pAdvertising = pServer->getAdvertising();  // this still is working for backward compatibility
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
   pAdvertising->setMinPreferred(0x06);  // functions that help with iPhone connections issue
-  pAdvertising->setMinPreferred(0x12);
+  //pAdvertising->setMinPreferred(0x12);
   BLEDevice::startAdvertising();
   Serial.println("Characteristic defined! Now you can read it in your phone!");
 }
