@@ -10,25 +10,6 @@
 #define ssid_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a1"
 #define pw_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a2"
 
- BLECharacteristic *C_ssid = NULL;
- BLECharacteristic *C_pw = NULL;
- BLECharacteristic * c_wifistate = NULL;
-
-class MyCallbacks: public BLECharacteristicCallbacks {
-    void onWrite(BLECharacteristic *pCharacteristic) {
-      std::string value = pCharacteristic->getValue();
-    pCharacteristic->notify();
-      if (value.length() > 0) {
-        Serial.println("*********");
-        Serial.print("New value: ");
-        for (int i = 0; i < value.length(); i++)
-          Serial.print(value[i]);
-
-        Serial.println();
-        Serial.println("*********");
-      }
-    }
-};
 
 String s2_command;
 
@@ -37,16 +18,73 @@ String mqttsvip = "94.191.14.111";
 String mqttsvport = "2000";
 
 //********wifi********************
-//const char* ssid = "";
-//const char* password = "";
 
-const char* ssid = "DSCNRT-2.4G";
-const char* password = "DrinkStation88";
+String ssid =  "DSCNRT-2.4G";
+String password = "DrinkStation88";
 
 const char* mqttsv = "94.191.14.111";
 uint16_t mqttport = 2000;
 WiFiClient espClient;
 PubSubClient client(espClient);
+
+ BLECharacteristic *c_ssid = NULL;
+ BLECharacteristic *c_pw = NULL;
+ BLECharacteristic * c_wifistate = NULL;
+
+
+ void wifiopen(int timeout)
+{
+  WiFi.begin(ssid.c_str(), password.c_str());
+  long int time = millis();
+
+  while (WiFi.status() != WL_CONNECTED && (time + timeout > millis())) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("wifi ok");
+  }
+}
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string value = pCharacteristic->getValue();
+
+std::string newssid = c_ssid->getValue();
+std::string newpw = c_pw->getValue();
+      
+    pCharacteristic->notify();
+
+        Serial.println("*********");
+        Serial.print("New value: ");
+        for (int i = 0; i < value.length(); i++)
+         Serial.print(value[i]);
+
+        Serial.println();
+        Serial.println("*********");
+       
+        ssid = newssid.c_str();
+        password = newpw.c_str();
+
+         Serial.println(newssid.c_str());
+        Serial.println(newpw.c_str());
+
+    wifiopen(6000);
+    if (WiFi.status() == WL_CONNECTED)
+    {
+      Serial.println("ok wifi connect");
+      pCharacteristic->setValue("ON");
+      pCharacteristic->notify();
+    } else {
+       pCharacteristic->setValue("OFF");
+       pCharacteristic->notify();
+      Serial.println("to open sim7020");
+    }
+      
+    }
+};
 
 void mqttpub(String msg)
 {
@@ -98,22 +136,6 @@ int hex_to_ascii(char c, char d){
         int high = hex_to_int(c) * 16;
         int low = hex_to_int(d);
         return high+low;
-}
-
-void wifiopen(int timeout)
-{
-  WiFi.begin(ssid, password);
-  long int time = millis();
-
-  while (WiFi.status() != WL_CONNECTED && (time + timeout > millis())) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  if (WiFi.status() == WL_CONNECTED)
-  {
-    Serial.println("wifi ok");
-  }
 }
 
 
@@ -264,7 +286,7 @@ void runBLE()
   BLEDevice::init("DSC");
   BLEServer *pServer = BLEDevice::createServer();
   BLEService *pService = pServer->createService(SERVICE_UUID);
-  BLECharacteristic * c_wifistate = pService->createCharacteristic(
+  c_wifistate = pService->createCharacteristic(
                                          wifistate_UUID,
                                          BLECharacteristic::PROPERTY_READ |
                                          BLECharacteristic::PROPERTY_WRITE
@@ -277,19 +299,19 @@ void runBLE()
   c_wifistate->setValue("OFF");  
   }
 
- BLECharacteristic *C_ssid = pService->createCharacteristic(
+ c_ssid = pService->createCharacteristic(
                                          ssid_UUID,
                                          BLECharacteristic::PROPERTY_READ |
                                          BLECharacteristic::PROPERTY_WRITE
                                        );
- C_ssid->setValue("ssid");  
+ c_ssid->setValue(ssid.c_str());  
 
- BLECharacteristic *C_pw = pService->createCharacteristic(
+ c_pw = pService->createCharacteristic(
                                          pw_UUID,
                                          BLECharacteristic::PROPERTY_READ |
                                          BLECharacteristic::PROPERTY_WRITE
                                        );
- C_pw->setValue("password"); 
+ c_pw->setValue(password.c_str()); 
 
 
   
