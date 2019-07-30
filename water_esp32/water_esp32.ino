@@ -17,7 +17,7 @@
 class MyCallbacks: public BLECharacteristicCallbacks {
     void onWrite(BLECharacteristic *pCharacteristic) {
       std::string value = pCharacteristic->getValue();
-
+    pCharacteristic->notify();
       if (value.length() > 0) {
         Serial.println("*********");
         Serial.print("New value: ");
@@ -285,7 +285,7 @@ void runBLE()
  C_ssid->setValue("ssid");  
 
  BLECharacteristic *C_pw = pService->createCharacteristic(
-                                         ssid_UUID,
+                                         pw_UUID,
                                          BLECharacteristic::PROPERTY_READ |
                                          BLECharacteristic::PROPERTY_WRITE
                                        );
