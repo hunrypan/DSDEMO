@@ -75,6 +75,9 @@ std::string newpw = c_pw->getValue();
     if (WiFi.status() == WL_CONNECTED)
     {
       Serial.println("ok wifi connect");
+      Serial.println("ok wifi connect");
+      client.setServer(mqttsv, mqttport);
+      client.setCallback(callback);
       pCharacteristic->setValue("ON");
       pCharacteristic->notify();
     } else {
@@ -143,12 +146,8 @@ int hex_to_ascii(char c, char d){
 void sim7020open()
 {
   send_at("AT+CMQNEW=?", 2000);
-  delay(2000);
+  delay(3000);
 
-  //send_at("AT+CMQNEW=\"" +  mqttsvip   +   "\", \"" +  mqttsvport  + "\" ,5000,1024",5000);
-  //delay(5000);
-
-  delay(4000);
   mqttid_sim7020 =  getmqttid();
   Serial.println("aha mqttid is  " + mqttid_sim7020 );
 
@@ -184,7 +183,7 @@ void setup() {
   runBLE();
   delay(2000);
 
-  // if (ssid.length > 0)
+  if (ssid.length() > 0)
   {
     wifiopen(6000);
     if (WiFi.status() == WL_CONNECTED)
@@ -202,7 +201,7 @@ void setup() {
 void loop() {
 
   if (WiFi.status() == WL_CONNECTED)
-  {
+  {     
     if (!client.connected()) {
       reconnect();
     }
@@ -294,7 +293,7 @@ void runBLE()
   c_wifistate->setCallbacks(new MyCallbacks());
   if(WiFi.status() == WL_CONNECTED)
   {
-  c_wifistate->setValue("ON");
+  c_wifistate->setValue("ON");  
   }else{
   c_wifistate->setValue("OFF");  
   }
