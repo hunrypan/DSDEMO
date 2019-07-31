@@ -282,7 +282,7 @@ void reconnect() {
 
 void runBLE()
 {
-  BLEDevice::init("DSC");
+  BLEDevice::init("Drink Station");
   BLEServer *pServer = BLEDevice::createServer();
   BLEService *pService = pServer->createService(SERVICE_UUID);
   c_wifistate = pService->createCharacteristic(
