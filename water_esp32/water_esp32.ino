@@ -75,7 +75,6 @@ std::string newpw = c_pw->getValue();
     if (WiFi.status() == WL_CONNECTED)
     {
       Serial.println("ok wifi connect");
-      Serial.println("ok wifi connect");
       client.setServer(mqttsv, mqttport);
       client.setCallback(callback);
       pCharacteristic->setValue("ON");
