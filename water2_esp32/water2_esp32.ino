@@ -236,17 +236,16 @@ void loop() {
 
  if(do1)
     {
-     // Serial.println("do1");
+      Serial.println("do1");
        dosome1();
     }else if(do2)
     {
-//Serial.println("do2");
+   Serial.println("do2");
     dosome2();
     }else if(do3)
     {
-//Serial.println("do3");
+Serial.println("do3");
 dosome3();
-do3 = false;
     }
 
 }
@@ -264,6 +263,7 @@ void dosome3()
   } else {   
     mqttpub("wind");
   }
+  do3 = false;
  }
 
 
@@ -287,7 +287,8 @@ if(str != "")
 {
 Serial.print("aha get some from machine ");
   Serial.println(str);
-} 
+}
+do2 = false; 
 }
 
 void dosome1()
@@ -311,6 +312,7 @@ if(str != "")
 Serial.print("aha get some from sim7020 ");
   Serial.println(str); 
 }
+do1 = false;
 }
 
 
