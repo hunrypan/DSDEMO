@@ -104,8 +104,8 @@ msg.getBytes(ahabyte,sizeof(ahabyte)+1);
 char str[sizeof(ahabyte)*2] = "";
 array_to_string(ahabyte, sizeof(ahabyte), str);
 //Serial.println(str);
-
- send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"", 3000);
+ Serial2.println("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"");
+ //send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"", 3000);
 }
 
 void array_to_string(byte array[], unsigned int len, char buffer[])
@@ -207,7 +207,7 @@ void setup() {
 
   delay(1000);
 
-  runBLE();
+  //runBLE();
   delay(2000);
 
   if (ssid.length() > 0)
@@ -236,35 +236,82 @@ void loop() {
 
  if(do1)
     {
-      Serial.println("do1");
-       watch1();
+     // Serial.println("do1");
+       dosome1();
     }else if(do2)
     {
-Serial.println("do2");
+//Serial.println("do2");
+    dosome2();
     }else if(do3)
     {
-Serial.println("do3");
+//Serial.println("do3");
+dosome3();
+do3 = false;
     }
 
-/*
-  if (WiFi.status() == WL_CONNECTED)
+}
+
+
+void dosome3()
+{
+ if (WiFi.status() == WL_CONNECTED)
   {     
     if (!client.connected()) {
       reconnect();
     }
     client.loop();
     client.publish("hello", "hello from  wifi");
-  } else {
-     
+  } else {   
     mqttpub("wind");
   }
-*/
- // delay(100);
-  // put your main code here, to run repeatedly:
+ }
 
+
+void dosome2()
+{
+  String str = "";
+while(Serial.available() > 0)
+{
+char c = Serial.read();
+if (c == '\n'){
+    if (str != "")
+    { 
+  Serial.print("aha get some from machine ");
+  Serial.println(str); 
+    }
+  str = "";
+}
+str.concat(c);
+}
+if(str != "")
+{
+Serial.print("aha get some from machine ");
+  Serial.println(str);
+} 
 }
 
-
+void dosome1()
+{
+  String str = "";
+while(Serial2.available() > 0)
+{
+char c = Serial2.read();
+if (c == '\n'){
+  if(str != "")
+  {
+  Serial.print("aha get some from sim7020 ");
+  Serial.println(str);
+  } 
+  str = "";
+}
+  str.concat(c);
+}
+if(str != "")
+{
+Serial.print("aha get some from sim7020 ");
+  Serial.println(str); 
+}
+}
 
 
 String getmqttid()
