@@ -162,9 +162,10 @@ msg.getBytes(ahabyte,sizeof(ahabyte)+1);
 
 char str[sizeof(ahabyte)*2] = "";
 array_to_string(ahabyte, sizeof(ahabyte), str);
-//Serial.println(str);
+Serial.println(str);
 
- send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"", 3000);
+ send_at("AT+CMQPUB=" + mqttid_sim7020  + ",\"DrankStation\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"", 3000);
+ Serial.println("AT+CMQPUB=" + mqttid_sim7020  + ",\"hello\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"");
 }
 
 String bytestostring(String hex)
@@ -196,9 +197,9 @@ int hex_to_ascii(char c, char d){
 
 void loop() {
   // put your main code here, to run repeatedly:
-watch();
-//mqttpub("aha ok");
-//delay(5000);
+
+mqttpub("DRINKSTATIONDSDA17H00011712181051470190DSDA17H00012017-12-1810:51:479999990000910012000100000000000000000000000000004.217.61");
+delay(5000);
   }
 
 
