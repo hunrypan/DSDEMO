@@ -89,7 +89,7 @@ int hex_to_ascii(char c, char d) {
 void sim7020open()
 {
   mqttid_sim7020 =  getmqttid();
-  Serial.println("aha mqttid is  " + mqttid_sim7020 );
+  //Serial.println("aha mqttid is  " + mqttid_sim7020 );
 
   String myclient =  machineid + "SIM";
   send_at("AT+CMQCON=" +   mqttid_sim7020   +  ",3,\" " +  myclient  +  "\",600,0,0", 3000);
@@ -169,11 +169,11 @@ void loop() {
   //********************* interrupt check serial every secend***********
   if (do1)
   {
-    Serial.println("do1");
+    //Serial.println("do1");
     dosome1();
   } else if (do2)
   {
-    Serial.println("do2");
+    //Serial.println("do2");
     dosome2();
   }
 
@@ -194,9 +194,11 @@ void dosome2()
         if(machineid.length() < 2)
         {
               dosome = "firstopen";
+        }else{
+              dosome="sendmqtt";
         }
         machineid = machineinfo.substring(39,50);
-        Serial.println(machineid);
+        //Serial.println(machineid);
   }
     }
     str.concat(c);
@@ -214,8 +216,8 @@ void dosome1()
     if (c == '\n') {
       if (str != "")
       {
-        Serial.print("aha get some from sim7020 ");
-        Serial.println(str);
+        //Serial.print("aha get some from sim7020 ");
+        //Serial.println(str);
       }
       str = "";
     }
@@ -223,8 +225,8 @@ void dosome1()
   }
   if (str != "")
   {
-    Serial.print("aha get some from sim7020 ");
-    Serial.println(str);
+    //Serial.print("aha get some from sim7020 ");
+    //Serial.println(str);
   }
   do1 = false;
 }
@@ -243,10 +245,10 @@ String getmqttid()
       res +=  Serial2.readString();;
     }
   }
-  Serial.print(res);
+  //Serial.print(res);
 
   int leng = res.length();
-  Serial.println("aha  find-" + res.substring(leng - 4, leng - 2) + "-"  +  "  -" +   res.substring(leng - 9, leng - 8)   + "-");
+  //Serial.println("aha  find-" + res.substring(leng - 4, leng - 2) + "-"  +  "  -" +   res.substring(leng - 9, leng - 8)   + "-");
 
   return res.substring(leng - 9, leng - 8);
 }
@@ -261,7 +263,7 @@ void send_at(String command, int timeout)
     while (Serial2.available())
     {
       String c = Serial2.readString();
-      Serial.print(c);
+      //Serial.print(c);
     }
   }
 }
@@ -278,5 +280,5 @@ void runBLE()
   pAdvertising->setScanResponse(true);
   pAdvertising->setMinPreferred(0x06);
   BLEDevice::startAdvertising();
-  Serial.println("Ble on");
+  //Serial.println("Ble on");
 }
