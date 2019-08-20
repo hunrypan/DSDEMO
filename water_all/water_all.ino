@@ -6,9 +6,16 @@
 
 #define TIMEOUT 200
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define wifistate_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define ssid_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a1"
+#define pw_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a2"
 
 volatile bool do1 = true;
 volatile bool do2 = true;
+
+BLECharacteristic *c_ssid = NULL;
+BLECharacteristic *c_pw = NULL;
+BLECharacteristic * c_wifistate = NULL;
 
 String dosome = "none";
 
@@ -38,10 +45,6 @@ uint16_t mqttport = 2000;
 WiFiClient espClient;
 PubSubClient client(espClient);
 
-BLECharacteristic *c_ssid = NULL;
-BLECharacteristic *c_pw = NULL;
-BLECharacteristic * c_wifistate = NULL;
-
 
 void openwifi()
 {
@@ -51,7 +54,12 @@ void openwifi()
   if (WiFi.status() == WL_CONNECTED)
   {
     wifi_on = true;
-  }
+            c_wifistate->setValue("ON");
+        c_wifistate->notify();
+     }else{
+        c_wifistate->setValue("OFF");
+        c_wifistate->notify(); 
+     }
 }
 
 void mqttpub(String msg)
@@ -120,6 +128,18 @@ void IRAM_ATTR  onTimer1() {
   portEXIT_CRITICAL_ISR(&timerMux);
 }
 
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string newssid = c_ssid->getValue();
+      std::string newpw = c_pw->getValue();
+
+      ssid = newssid.c_str();
+      password = newpw.c_str();
+      dosome = "openwifi"; 
+};
+};
+
 void setup() {
 
   Serial.begin(115200);
@@ -184,8 +204,8 @@ void loop() {
 
   if (dosome == "firstopen")
   {
-    openwifi();
     runBLE();
+    openwifi();
     dosome = "sendmqtt";
   }
 
@@ -297,6 +317,28 @@ void runBLE()
   BLEDevice::init(machineid.c_str());
   BLEServer *pServer = BLEDevice::createServer();
   BLEService *pService = pServer->createService(SERVICE_UUID);
+
+  c_wifistate = pService->createCharacteristic(
+                  wifistate_UUID,
+                  BLECharacteristic::PROPERTY_READ |
+                  BLECharacteristic::PROPERTY_WRITE
+                );
+  c_wifistate->setCallbacks(new MyCallbacks());
+  c_wifistate->setValue("OFF");
+
+  c_ssid = pService->createCharacteristic(
+             ssid_UUID,
+             BLECharacteristic::PROPERTY_READ |
+             BLECharacteristic::PROPERTY_WRITE
+           );
+  c_ssid->setValue(ssid.c_str());
+
+  c_pw = pService->createCharacteristic(
+           pw_UUID,
+           BLECharacteristic::PROPERTY_READ |
+           BLECharacteristic::PROPERTY_WRITE
+         );
+  c_pw->setValue(password.c_str());
 
   pService->start();
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
