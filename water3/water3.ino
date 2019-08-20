@@ -7,6 +7,8 @@
 
 // gpio13 rxd2  gpio15 txd2
 
+String thes = "GDSCDC07AH00120190815142460HT0000000000000000000000000000-00025.51111END";
+
 int i=1;
 
 int count[9]  = {0,0,0,0,0,0,0,0,0};

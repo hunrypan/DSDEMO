@@ -1,15 +1,21 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
 
 #define TIMEOUT 200
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
+#define wifistate_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
+#define ssid_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a1"
+#define pw_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a2"
 
 volatile bool do1 = true;
 volatile bool do2 = true;
 
 String dosome = "none";
 
+bool wifi_on = false;
 bool sim7020_on = false;
 bool ble_on = false;
 
@@ -27,13 +33,79 @@ String mqttid_sim7020 = "0";
 String mqttsvip = "94.191.14.111";
 String mqttsvport = "2000";
 
+//********wifi********************
+
+String ssid =  "DSCNRT-2.4G";
+String password = "DrinkStation88";
+
 const char* mqttsv = "94.191.14.111";
 uint16_t mqttport = 2000;
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 BLECharacteristic *c_ssid = NULL;
 BLECharacteristic *c_pw = NULL;
 BLECharacteristic * c_wifistate = NULL;
 
+
+void wifiopen(int timeout)
+{
+
+  WiFi.begin(ssid.c_str(), password.c_str());
+  long int time = millis();
+
+  while (WiFi.status() != WL_CONNECTED && (time + timeout > millis())) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    Serial.println("wifi ok");
+  } else {
+    Serial.println("wifi not ok");
+  }
+}
+
+class MyCallbacks: public BLECharacteristicCallbacks {
+    void onWrite(BLECharacteristic *pCharacteristic) {
+      std::string value = pCharacteristic->getValue();
+
+      std::string newssid = c_ssid->getValue();
+      std::string newpw = c_pw->getValue();
+
+      pCharacteristic->notify();
+
+      Serial.println("*********");
+      Serial.print("New value: ");
+      for (int i = 0; i < value.length(); i++)
+        Serial.print(value[i]);
+
+      Serial.println();
+      Serial.println("*********");
+
+      ssid = newssid.c_str();
+      password = newpw.c_str();
+
+      Serial.println(newssid.c_str());
+      Serial.println(newpw.c_str());
+
+      wifiopen(6000);
+      if (WiFi.status() == WL_CONNECTED)
+      {
+        Serial.println("ok wifi connect");
+        client.setServer(mqttsv, mqttport);
+        client.setCallback(callback);
+        pCharacteristic->setValue("ON");
+        pCharacteristic->notify();
+      } else {
+        pCharacteristic->setValue("OFF");
+        pCharacteristic->notify();
+        Serial.println("to open sim7020");
+      }
+
+    }
+};
 
 void mqttpub(String msg)
 {
@@ -88,8 +160,11 @@ int hex_to_ascii(char c, char d) {
 
 void sim7020open()
 {
+  send_at("AT+CMQNEW=?", 2000);
+  delay(3000);
+
   mqttid_sim7020 =  getmqttid();
-  //Serial.println("aha mqttid is  " + mqttid_sim7020 );
+  Serial.println("aha mqttid is  " + mqttid_sim7020 );
 
   String myclient =  machineid + "SIM";
   send_at("AT+CMQCON=" +   mqttid_sim7020   +  ",3,\" " +  myclient  +  "\",600,0,0", 3000);
@@ -99,6 +174,17 @@ void sim7020open()
   delay(3000);
 
   sim7020_on = true;
+}
+
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
 }
 
 
@@ -136,9 +222,23 @@ void setup() {
 
 void loop() {
 
+  if (wifi_on)
+  {
+    client.loop();
+  }
+  
+
+  if (dosome == "openwifi")
+  {
+    wifiopen(6000);
+    client.setServer(mqttsv, mqttport);
+    client.setCallback(callback);
+    dosome = "none";
+  }
+
   if (dosome == "openble")
   {
-    runBLE();
+    //runBLE();
     dosome = "none";
   }
 
@@ -150,7 +250,16 @@ void loop() {
 
   if (dosome == "sendmqtt")
   {
-      if (sim7020_on)
+    if (wifi_on)
+    {
+      if (!client.connected()) {
+        reconnect();
+      }
+client.beginPublish("DrankStation", machineinfo.length(), false);
+ client.print(machineinfo);
+ client.endPublish();
+ 
+    }else if (sim7020_on)
     {
       mqttpub(machineinfo);
     }
@@ -160,8 +269,8 @@ void loop() {
 
   if (dosome == "firstopen")
   {
+
        sim7020open();
-       runBLE();
       dosome = "sendmqtt";
   }
 
@@ -169,11 +278,11 @@ void loop() {
   //********************* interrupt check serial every secend***********
   if (do1)
   {
-    //Serial.println("do1");
+    Serial.println("do1");
     dosome1();
   } else if (do2)
   {
-    //Serial.println("do2");
+    Serial.println("do2");
     dosome2();
   }
 
@@ -186,7 +295,7 @@ void dosome2()
   {
     char c = Serial.read();
     if (c == '\n') {
-   if (str.length()>60)
+   if (str.length()>100)
   {
         machineinfo = str;
 
@@ -194,10 +303,8 @@ void dosome2()
         if(machineid.length() < 2)
         {
               dosome = "firstopen";
-        }else{
-              dosome="sendmqtt";
         }
-        machineid = machineinfo.substring(4,13);
+        machineid = machineinfo.substring(39,50);
         Serial.println(machineid);
   }
     }
@@ -216,8 +323,8 @@ void dosome1()
     if (c == '\n') {
       if (str != "")
       {
-        //Serial.print("aha get some from sim7020 ");
-        //Serial.println(str);
+        Serial.print("aha get some from sim7020 ");
+        Serial.println(str);
       }
       str = "";
     }
@@ -225,8 +332,8 @@ void dosome1()
   }
   if (str != "")
   {
-    //Serial.print("aha get some from sim7020 ");
-    //Serial.println(str);
+    Serial.print("aha get some from sim7020 ");
+    Serial.println(str);
   }
   do1 = false;
 }
@@ -245,10 +352,10 @@ String getmqttid()
       res +=  Serial2.readString();;
     }
   }
-  //Serial.print(res);
+  Serial.print(res);
 
   int leng = res.length();
-  //Serial.println("aha  find-" + res.substring(leng - 4, leng - 2) + "-"  +  "  -" +   res.substring(leng - 9, leng - 8)   + "-");
+  Serial.println("aha  find-" + res.substring(leng - 4, leng - 2) + "-"  +  "  -" +   res.substring(leng - 9, leng - 8)   + "-");
 
   return res.substring(leng - 9, leng - 8);
 }
@@ -263,16 +370,53 @@ void send_at(String command, int timeout)
     while (Serial2.available())
     {
       String c = Serial2.readString();
-      //Serial.print(c);
+      Serial.print(c);
+    }
+  }
+}
+
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Attempting MQTT connection...");
+    if (client.connect(machineid.c_str())) {
+      client.subscribe("netcommand");
+    } else {
+      delay(5000);
     }
   }
 }
 
 void runBLE()
 {
-  BLEDevice::init(machineid.c_str());
+  BLEDevice::init("Drink Station");
   BLEServer *pServer = BLEDevice::createServer();
   BLEService *pService = pServer->createService(SERVICE_UUID);
+  c_wifistate = pService->createCharacteristic(
+                  wifistate_UUID,
+                  BLECharacteristic::PROPERTY_READ |
+                  BLECharacteristic::PROPERTY_WRITE
+                );
+  c_wifistate->setCallbacks(new MyCallbacks());
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    c_wifistate->setValue("ON");
+  } else {
+    c_wifistate->setValue("OFF");
+  }
+
+  c_ssid = pService->createCharacteristic(
+             ssid_UUID,
+             BLECharacteristic::PROPERTY_READ |
+             BLECharacteristic::PROPERTY_WRITE
+           );
+  c_ssid->setValue(ssid.c_str());
+
+  c_pw = pService->createCharacteristic(
+           pw_UUID,
+           BLECharacteristic::PROPERTY_READ |
+           BLECharacteristic::PROPERTY_WRITE
+         );
+  c_pw->setValue(password.c_str());
 
   pService->start();
   BLEAdvertising *pAdvertising = BLEDevice::getAdvertising();
@@ -280,5 +424,5 @@ void runBLE()
   pAdvertising->setScanResponse(true);
   pAdvertising->setMinPreferred(0x06);
   BLEDevice::startAdvertising();
-  Serial.println("Ble on");
+  Serial.println("Characteristic defined! Now you can read it in your phone!");
 }

@@ -1,6 +1,8 @@
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEServer.h>
+#include <WiFi.h>
+#include <PubSubClient.h>
 
 #define TIMEOUT 200
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
@@ -10,8 +12,8 @@ volatile bool do2 = true;
 
 String dosome = "none";
 
-bool sim7020_on = false;
 bool ble_on = false;
+bool wifi_on = false;
 
 String machineinfo = "";
 String netcommand = "";
@@ -27,13 +29,30 @@ String mqttid_sim7020 = "0";
 String mqttsvip = "94.191.14.111";
 String mqttsvport = "2000";
 
+
+//****forwifi*****
+String ssid =  "DSCNAP";
+String password = "DrinkStation88";
 const char* mqttsv = "94.191.14.111";
 uint16_t mqttport = 2000;
+WiFiClient espClient;
+PubSubClient client(espClient);
 
 BLECharacteristic *c_ssid = NULL;
 BLECharacteristic *c_pw = NULL;
 BLECharacteristic * c_wifistate = NULL;
 
+
+void openwifi()
+{
+  WiFi.begin(ssid.c_str(), password.c_str());
+  delay(5000);
+
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    wifi_on = true;
+  }
+}
 
 void mqttpub(String msg)
 {
@@ -42,7 +61,7 @@ void mqttpub(String msg)
 
   char str[sizeof(ahabyte) * 2] = "";
   array_to_string(ahabyte, sizeof(ahabyte), str);
-  
+
   Serial2.println("AT+CMQPUB=" + mqttid_sim7020  + ",\"DrankStation\",1,0,0," + (String)strlen(str)  +  ",\"" + str   + "\"");
 }
 
@@ -84,24 +103,6 @@ int hex_to_ascii(char c, char d) {
   return high + low;
 }
 
-
-
-void sim7020open()
-{
-  mqttid_sim7020 =  getmqttid();
-  //Serial.println("aha mqttid is  " + mqttid_sim7020 );
-
-  String myclient =  machineid + "SIM";
-  send_at("AT+CMQCON=" +   mqttid_sim7020   +  ",3,\" " +  myclient  +  "\",600,0,0", 3000);
-  delay(3000);
-
-  send_at("AT+CMQSUB=" + mqttid_sim7020  + ",\"netcommand\",0", 3000);
-  delay(3000);
-
-  sim7020_on = true;
-}
-
-
 void IRAM_ATTR  onTimer1() {
   portENTER_CRITICAL_ISR(&timerMux);
 
@@ -136,23 +137,46 @@ void setup() {
 
 void loop() {
 
+  if (wifi_on)
+  {
+    client.loop();
+  }
+
+  if (dosome == "openwifi")
+  {
+    openwifi();
+    client.setServer(mqttsv, mqttport);
+    dosome = "none";
+  }
+
   if (dosome == "openble")
   {
     runBLE();
     dosome = "none";
   }
 
-  if (dosome == "opensim7020")
-  {
-    sim7020open();
-    dosome = "none";
-  }
-
   if (dosome == "sendmqtt")
   {
-      if (sim7020_on)
+    if (wifi_on)
     {
-      mqttpub(machineinfo);
+      if (!client.connected()) {
+        while (!client.connected()) {
+          if (client.connect(machineid.c_str())) {
+          } else {
+            delay(5000);
+          }
+        }
+      }
+      client.beginPublish("DrankStation", machineinfo.length(), false);
+      client.print(machineinfo);
+      client.endPublish();
+    } else
+    {
+  mqttid_sim7020 =  getmqttid();
+  String myclient =  machineid + "SIM";
+  Serial2.println("AT+CMQCON=" +   mqttid_sim7020   +  ",3,\" " +  myclient  +  "\",600,0,0");
+  delay(2000);
+  mqttpub(machineinfo);
     }
 
     dosome = "none";
@@ -160,9 +184,9 @@ void loop() {
 
   if (dosome == "firstopen")
   {
-       sim7020open();
-       runBLE();
-      dosome = "sendmqtt";
+    openwifi();
+    runBLE();
+    dosome = "sendmqtt";
   }
 
 
@@ -186,24 +210,24 @@ void dosome2()
   {
     char c = Serial.read();
     if (c == '\n') {
-   if (str.length()>60)
-  {
+      if (str.length() > 60)
+      {
         machineinfo = str;
 
-//************* first find machineid to open  **********
-        if(machineid.length() < 2)
+        //************* first find machineid to open  **********
+        if (machineid.length() < 2)
         {
-              dosome = "firstopen";
-        }else{
-              dosome="sendmqtt";
+          dosome = "firstopen";
+        } else {
+          dosome = "sendmqtt";
         }
-        machineid = machineinfo.substring(4,13);
-        Serial.println(machineid);
-  }
+        machineid = machineinfo.substring(4, 13);
+       // Serial.println(machineid);
+      }
     }
     str.concat(c);
   }
-  
+
   do2 = false;
 }
 
@@ -238,7 +262,7 @@ String getmqttid()
   String res = "";
   Serial2.println("AT+CMQNEW=\"" +  mqttsvip   +   "\", \"" +  mqttsvport  + "\" ,5000,1024");
   long int time = millis();
-  while (time + 2000 > millis())
+  while (time + 1000 > millis())
   {
     while (Serial2.available())
     {
@@ -280,5 +304,5 @@ void runBLE()
   pAdvertising->setScanResponse(true);
   pAdvertising->setMinPreferred(0x06);
   BLEDevice::startAdvertising();
-  Serial.println("Ble on");
+  //Serial.println("Ble on");
 }
