@@ -4,7 +4,6 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 
-#define TIMEOUT 200
 #define SERVICE_UUID        "4fafc201-1fb5-459e-8fcc-c5c9c331914b"
 #define wifistate_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a8"
 #define ssid_UUID "beb5483e-36e1-4688-b7f5-ea07361b26a1"
@@ -40,7 +39,7 @@ String mqttsvport = "2000";
 //****forwifi*****
 String ssid =  "DSCNAP";
 String password = "DrinkStation88";
-const char* mqttsv = "94.191.14.111";
+const char* mqttsv = "www.windcoffee.club";
 uint16_t mqttport = 2000;
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -48,15 +47,22 @@ PubSubClient client(espClient);
 
 void openwifi()
 {
+  //Serial.println("open wifi");
   WiFi.begin(ssid.c_str(), password.c_str());
   delay(5000);
 
   if (WiFi.status() == WL_CONNECTED)
   {
     wifi_on = true;
+
+    client.setServer(mqttsv, mqttport);
+    client.setCallback(callback);
+    
+    //Serial.println("wifi opened");
             c_wifistate->setValue("ON");
         c_wifistate->notify();
      }else{
+      //Serial.println("wifi close");
         c_wifistate->setValue("OFF");
         c_wifistate->notify(); 
      }
@@ -140,6 +146,25 @@ class MyCallbacks: public BLECharacteristicCallbacks {
 };
 };
 
+void callback(char* topic, byte* payload, unsigned int length) {
+  //Serial.println("Message arrived ");
+}
+
+void reconnect() {
+  // Loop until we're reconnected
+  while (!client.connected()) {
+    //Serial.print("Attempting MQTT connection...");
+    if (client.connect(machineid.c_str())) {
+      //Serial.println("connected");
+
+ delay(2000);
+    } else {
+      //Serial.println(" try again in 5 seconds");
+      delay(5000);
+    }
+  }
+}
+
 void setup() {
 
   Serial.begin(115200);
@@ -159,13 +184,15 @@ void loop() {
 
   if (wifi_on)
   {
-    client.loop();
+    if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
   }
 
   if (dosome == "openwifi")
   {
     openwifi();
-    client.setServer(mqttsv, mqttport);
     dosome = "none";
   }
 
@@ -179,17 +206,14 @@ void loop() {
   {
     if (wifi_on)
     {
-      if (!client.connected()) {
-        while (!client.connected()) {
-          if (client.connect(machineid.c_str())) {
-          } else {
-            delay(5000);
-          }
-        }
-      }
+      //Serial.println("send mqtt by wifi");
+      //Serial.println("send mqtt info");
+      
       client.beginPublish("DrankStation", machineinfo.length(), false);
       client.print(machineinfo);
       client.endPublish();
+      //Serial.println("send mqtt info ok");
+      //Serial.println(machineinfo);
     } else
     {
   mqttid_sim7020 =  getmqttid();
